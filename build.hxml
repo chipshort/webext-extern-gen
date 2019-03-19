@@ -1,4 +1,5 @@
 -cp src
+-cp ../hxLazy/src
 -D analyzer-optimize
 -main Main
 --interp
