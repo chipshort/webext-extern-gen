@@ -11,13 +11,19 @@ using lazy.LambdaTools;
 using StringTools;
 
 class Main {
-	static var OUTPUT_FOLDER = Dir.of("output");
-	static var SCHEMAS_FOLDER = Dir.of("schemas");
+	#if chrome
+	static var OUTPUT_FOLDER = Dir.of("chrome_output");
+	static var SCHEMAS_FOLDER = Dir.of("chrome_schemas");
+	#else
+	static var OUTPUT_FOLDER = Dir.of("firefox_output");
+	static var SCHEMAS_FOLDER = Dir.of("firefox_schemas");
+	#end
 	static var PREDEFINED_FOLDER = Dir.of("predefined");
 
 	static function main() {
-		//FIXME: fix keywords (like import) somehow, not yet sure how
-		var parsed = SCHEMAS_FOLDER.listFiles().toList()
+		var files = [];
+		SCHEMAS_FOLDER.walk(function (file) files.push(file), function (_) return true);
+		var parsed = files.toList()
 			.filter(function (file) return file.path.filenameExt == "json")
 			.map(parseFile)
 			.map(lazy.ListTools.toList)
@@ -25,9 +31,6 @@ class Main {
 			.filter(function (ns) return ns.namespace != "manifest");
 
 		var namespaces = joinNamespaces(parsed);
-
-		//FIXME: temporary hack
-		namespaces = namespaces.filter(function (ns) return ns.namespace.indexOf(".") == -1);
 		
 		//collect predefined types
 		var predefined = [];
@@ -40,8 +43,11 @@ class Main {
 
 		//print out generated types
 		OUTPUT_FOLDER.delete(true);
-		PREDEFINED_FOLDER.copyTo(OUTPUT_FOLDER.path);
-
+		#if chrome
+		Dir.of(PREDEFINED_FOLDER.path.join("chrome")).copyTo(OUTPUT_FOLDER.path.join("chrome"));
+		#else
+		Dir.of(PREDEFINED_FOLDER.path.join("browser")).copyTo(OUTPUT_FOLDER.path.join("browser"));
+		#end
 		var printer = new haxe.macro.Printer("\t");
 		for (decl in declarations) {
 			var folder = OUTPUT_FOLDER.path.join(decl.pack.join(OUTPUT_FOLDER.path.dirSep));

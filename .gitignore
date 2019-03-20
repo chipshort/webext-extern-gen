@@ -1,4 +1,7 @@
-schemas/*
-!schemas/.gitkeep
-output
+chrome_schemas/*
+!chrome_schemas/.gitkeep
+firefox_schemas/*
+!firefox_schemas/.gitkeep
+firefox_output
+chrome_output
 test/Main.js

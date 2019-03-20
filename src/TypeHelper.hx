@@ -1,6 +1,8 @@
 
 import haxe.macro.Expr;
 
+using StringTools;
+
 class TypeHelper {
     static var RESERVED = ["break", "case", "cast", "catch", "class", "continue", "default", "do", "dynamic",
 		"else", "enum", "extends", "extern", "false", "for", "function",
@@ -18,6 +20,24 @@ class TypeHelper {
 		}
 		return field;
 	}
+
+    public static function valueToField(value : Dynamic) : Field {
+        var name = switch (Type.typeof(value)) {
+            case TInt: "VAL_" + value;
+            case TFloat: "VAL_" + Std.string(value).replace(".", "_");
+            case TBool: Std.string(value).toUpperCase();
+            case TClass(String): value.toUpperCase();
+            default: Std.string(value).toUpperCase();
+        }
+        
+        return {
+            name: name,
+            kind: FVar(null, valueToConstExpr(value)),
+            pos: null
+        };
+
+        return null;
+    }
 
 	public static function makeStatic(field : Field) {
 		if (field.access == null)

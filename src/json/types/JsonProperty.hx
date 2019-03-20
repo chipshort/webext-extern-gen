@@ -3,5 +3,6 @@ package json.types;
 typedef JsonProperty = {
     > JsonTypeDecl,
     ?description : String,
-    ?value : Dynamic
+    ?value : Dynamic,
+    ?optional : Bool
 }

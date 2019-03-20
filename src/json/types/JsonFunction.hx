@@ -1,6 +1,6 @@
 package json.types;
 
-typedef JsonFunction = { //TODO: is this even needed as a seperate type?
+typedef JsonFunction = {
     > JsonTypeDecl,
     name : String,
     ?description : String

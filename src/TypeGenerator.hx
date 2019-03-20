@@ -3,14 +3,22 @@ import haxe.macro.Expr;
 import TypeHelper.*;
 
 using StringTools;
+using ArrayTools;
+using lazy.ListTools;
 
 class TypeGenerator {
     var namespaces : Iterable<JsonNamespace>;
     var knownTypes = new Map<String, Bool>();
     var currentPackage : Array<String>;
+    var currentNamespace : Array<String>;
 
-    static var PACKAGE = ["browser"]; //["js", "browser"]
+	#if chrome
+    static var PACKAGE = ["chrome"];
+	static inline var NATIVE_PACK = "chrome";
+	#else
+	static var PACKAGE = ["browser"];
 	static inline var NATIVE_PACK = "browser";
+	#end
 
     public function new(namespaces : Iterable<JsonNamespace>, predefinedTypes : Iterable<String>) {
         this.namespaces = namespaces;
@@ -18,7 +26,7 @@ class TypeGenerator {
         for (ns in namespaces) {
 			if (ns.types != null)
 				for (type in ns.types)
-					knownTypes.set(toHaxePackage(ns.namespace) + "." + toHaxeType(type.id), true);
+					knownTypes.set(toHaxePackage(ns.namespace).join(".") + "." + toHaxeType(type.id), true);
 		}
         for (type in predefinedTypes)
             knownTypes.set(type, true);
@@ -26,41 +34,40 @@ class TypeGenerator {
 
     public function generate() : Array<TypeDefinition> {
         var declarations : Array<TypeDefinition> = [];
-		//main entry point
-		// declarations.push({
-		// 	pack: PACKAGE,
-		// 	name: "Browser",
-		// 	pos: null,
-		// 	meta: [{ name: ":native", params: [{expr: EConst(CString(NATIVE_PACK)), pos: null}], pos: null }],
-		// 	kind: TDClass(),
-		// 	fields: namespaces.map(function (ns) return cast {
-		// 		name: ns.namespace, //TODO: escape
-		// 		doc: ns.description,
-		// 		access: [AStatic, APublic],
-		// 		kind: FVar(TPath({pack: PACKAGE, name: toHaxeType(ns.namespace)})),
-		// 		pos: null,
-		// 	}).map(escapeName).toArray()
-		// });
 		
 		for (ns in namespaces) {
 			if (ns.types != null)
 				for (type in ns.types) {
 					currentPackage = toHaxePackage(ns.namespace);
-					declarations.push({
-						pack: currentPackage,
-						name: toHaxeType(type.id),
-						pos: null,
-						kind: TDStructure,
-						fields: parseProperties(type.properties) //TODO: other stuff too
-					});
-					//TODO: check if there can be functions within these types
+                    currentNamespace = currentPackage;
+					if (type.enum_ != null) {
+						declarations.push(convertEnum(type));
+					}
+					else {
+						declarations.push({
+							pack: currentPackage,
+							name: toHaxeType(type.id),
+							pos: null,
+							kind: TDStructure,
+							fields: parseProperties(type.properties)
+								.concat(parseFunctions(type.functions))
+								.concat(parseEvents(type.events))
+						});
+					}
+					//TODO: check if there can be events within these types
 				}
 			
 			//create class for namespace itself
-			currentPackage = toHaxePackage(null);
+			var split = ns.namespace.split(".");
+			if (split.length > 1)
+				currentPackage = toHaxePackage(split.allExceptLast().join("."));
+			else
+				currentPackage = toHaxePackage(null);
+			currentNamespace = toHaxePackage(currentPackage.concat([split.last()]).join("."));
+
 			declarations.push({
 				pack: currentPackage,
-				name: toHaxeType(ns.namespace),
+				name: toHaxeType(split.last()),
 				pos: null,
 				kind: TDClass(),
 				isExtern: true,
@@ -77,7 +84,7 @@ class TypeGenerator {
     function parseProperties(properties : Dynamic) : Array<Field> {
 		return [for (field in Reflect.fields(properties)) {
 			var prop : JsonProperty = Reflect.field(properties, field);
-			var value = prop.value; //TODO: add this to FVar as expression
+			var value = prop.value;
 			if (prop.unsupported)
 				continue;
 			cast {
@@ -85,28 +92,62 @@ class TypeGenerator {
 				doc: prop.description,
 				access: value == null ? [APublic] : [APublic, AStatic, AInline],
 				kind: value == null ? FVar(resolveType(prop)) : FVar(null, valueToConstExpr(value)),
+				meta: prop.optional == true ? [{name: ":optional", pos: null}] : null
 			}
 		}].map(escapeName);
 	}
 
 	function parseFunctions(functions : Array<JsonFunction>) : Array<Field> {
+		if (functions == null)
+			return [];
 		return [for (func in functions) {
 			if (func.unsupported)
 				continue;
 			var returnType = func.returns == null ? VOID : resolveType(func.returns);
-			// if (func.async == "callback")
-			// 	//FIXME: convert callback into Promise (which is what it actually is in Firefox),
-			//  //maybe use a compiler flag or command line arg for that
-			if (func.async == true) //schema does not define the type of promise
-				returnType = TPath({ pack: ["js"], name: "Promise", params: [TPType(DYNAMIC)] }); //TODO: make fix list or something
-			
+
+            switch (func.async) {
+                case Callback:
+					//the Firefox api doc for some reason specifies callbacks,
+					//although they actually are Promises, so this gets fixed here
+                    #if (!chrome)
+                    //assume last parameter is the callback
+                    var callback = func.parameters.last();
+                    func.parameters = func.parameters.allExceptLast();
+					
+                    var promiseType = VOID;
+					if (callback.parameters != null) {
+						if (callback.parameters.length > 1) {//more than one becomes Promise of Array
+							var paramTypes = callback.parameters.map(resolveType);
+							var paramType = paramTypes[0];
+							for (t in paramTypes) //if all params have same type, use that one, otherwise Dynamic
+								if (!paramType.equals(t)) {
+									paramType = DYNAMIC;
+									break;
+								}
+
+							promiseType = TPath({
+								pack: [], name: "Array",
+								params: [TPType(paramType)]
+							});
+						}
+						else if (callback.parameters.length == 1)
+							promiseType = resolveType(callback.parameters[0]);
+					}
+					
+                    returnType = TPath({ pack: ["js"], name: "Promise", params: [TPType(promiseType)] });
+					#end
+                case True: //schema does not define the type of promise
+                    returnType = TPath({ pack: ["js"], name: "Promise", params: [TPType(DYNAMIC)] }); //TODO: make fix list or something
+                default:
+            }
+
 			{
 				name: func.name,
 				doc: func.description,
 				access: [APublic],
 				pos: null,
 				kind: FFun({
-					args: func.parameters.map(function (p) return cast {
+					args: func.parameters == null ? [] : func.parameters.map(function (p) return cast {
 						name: p.name,
 						opt: p.optional == true,
 						type: resolveType(p)
@@ -119,6 +160,8 @@ class TypeGenerator {
 	}
 
 	function parseEvents(events : Array<JsonEvent>) : Array<Field> {
+		if (events == null)
+			return [];
 		return [for (e in events) {
 			if (e.unsupported)
 				continue;
@@ -149,6 +192,19 @@ class TypeGenerator {
 		}].map(escapeName);
 	}
 
+    /** Converts an enumerated type to a `@:enum abstract` **/
+	function convertEnum(type : JsonType) : TypeDefinition {
+		return {
+			pack: currentPackage,
+			name: toHaxeType(type.id),
+            meta: [{name: ":enum", pos: null}],
+			pos: null,
+			kind: TDAbstract(resolveType(type)),
+			fields: type.enum_ == null ? [] : type.enum_.map(valueToField)
+		}
+		return null;
+	}
+
     static var STRING = TPath({pack: [], name: "String"});
 	static var BOOL = TPath({pack: [], name: "Bool"});
 	static var INT = TPath({pack: [], name: "Int"});
@@ -159,22 +215,22 @@ class TypeGenerator {
 
     function resolveType(decl : JsonTypeDecl) : ComplexType {
 		switch (decl.type) {
-			case "string": return STRING;
-			case "boolean": return BOOL; 
-			case "integer": return INT;
-			case "number": return FLOAT;
-			case "null": return NULL;
-			case "array": return TPath({
+			case String: return STRING;
+			case Boolean: return BOOL; 
+			case Integer: return INT;
+			case Number: return FLOAT;
+			case Null: return NULL;
+			case Array: return TPath({
 					pack: [], name: "Array",
 					params: [TPType(resolveType(decl.items))]
 				});
-			case "object":
+			case Object:
 				if (decl.properties == null)
 					return DYNAMIC;
 				
 				var props = parseProperties(decl.properties);
 				return TAnonymous(props);
-			case "function":
+			case Function:
 				if (decl.parameters == null)
 					return DYNAMIC;
 
@@ -183,6 +239,9 @@ class TypeGenerator {
 						return p.optional == true ? TOptional(type) : type;
 					}),
 					decl.returns == null ? VOID : resolveType(decl.returns));
+            case Any:
+                return DYNAMIC;
+            default:
 		}
 		if (decl._ref == null) {
 			if ((decl.choices == null || decl.choices.length > 2))
@@ -195,14 +254,14 @@ class TypeGenerator {
 			});
 		}
 		//try pack._ref
-		var p = toHaxePackage(currentPackage.join("."));
+		var p = toHaxePackage(currentNamespace.join("."));
 		var name = toHaxeType(decl._ref);
 		var candidate = knownTypes.get(p.join(".") + "." + name);
 		if (candidate == null) {
 			//try _ref itself as the full path
 			var split = decl._ref.split(".");
-			p = toHaxePackage(split.slice(0, split.length - 1).join("."));
-			name = toHaxeType(split[split.length-1]);
+			p = toHaxePackage(split.allExceptLast().join("."));
+			name = toHaxeType(split.last());
 			candidate = knownTypes.get(p.join(".") + "." + name);
 		}
 		
@@ -219,7 +278,7 @@ class TypeGenerator {
 	function toHaxePackage(namespace : String)
 		if (namespace == null)
 			return PACKAGE;
-		else if (namespace.startsWith(PACKAGE.join(".") + "."))
+		else if (namespace.startsWith(PACKAGE.join(".")))
 			return namespace.toLowerCase().split(".");
 		else
 			return PACKAGE.concat(namespace.toLowerCase().split("."));
