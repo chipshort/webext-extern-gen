@@ -1,5 +1,6 @@
 -cp src
--cp ../output
+-cp ../chrome_output
+-cp ../firefox_output
 
 -main test.Main
 -js Main.js

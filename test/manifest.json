@@ -12,6 +12,7 @@
     "tabs",
     "activeTab",
     "storage",
+    "history",
     "http://*/",
     "https://*/"
   ],
