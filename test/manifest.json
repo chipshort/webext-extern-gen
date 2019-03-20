@@ -1,0 +1,24 @@
+{
+  "name" : "Test Extension",
+  "version" : "1.0",
+  "description" : "Test extension api.",
+  "browser_action" :
+  {
+    "default_popup" : "popup.html",
+    "default_title" : "Test"
+  },
+  "permissions": [
+    "declarativeContent",
+    "tabs",
+    "activeTab",
+    "storage",
+    "http://*/",
+    "https://*/"
+  ],
+  "applications": {
+    "gecko": {
+      "id": "test@christophotter.me"
+    }
+  },
+  "manifest_version": 2
+}

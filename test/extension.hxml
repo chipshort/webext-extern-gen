@@ -1,0 +1,5 @@
+-cp src
+-cp ../output
+
+-main test.Main
+-js Main.js

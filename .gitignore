@@ -1,3 +1,4 @@
 schemas/*
 !schemas/.gitkeep
 output
+test/Main.js
