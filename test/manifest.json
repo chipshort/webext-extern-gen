@@ -13,6 +13,7 @@
     "activeTab",
     "storage",
     "history",
+    "theme",
     "http://*/",
     "https://*/"
   ],

@@ -183,11 +183,11 @@ class TypeGenerator {
 			var callbackType = TPType(resolveType(e));
 			var type = DYNAMIC;
 			if (e.extraParameters == null || e.extraParameters.length == 0) {
-				type = TPath({pack: PACKAGE.concat(["internal"]), name: "Event", params: [callbackType]});
+				type = TPath({pack: ["internal"], name: "Event", params: [callbackType]});
 			}
 			else {
 				var extraTypes = e.extraParameters.map(resolveType).map(TPType);
-				var pack = PACKAGE.concat(["internal"]);
+				var pack = ["internal"];
 				if (e.extraParameters.length > 2)
 					Sys.println("WARNING: Too many extra parameter for event " + currentNamespace.join(".") + "." + e.name);
 
@@ -261,16 +261,28 @@ class TypeGenerator {
                 return DYNAMIC;
             default:
 		}
-		if (decl._ref == null) {
-			if ((decl.choices == null || decl.choices.length > 2))
-				return DYNAMIC;
+		if (decl.choices != null && decl.choices.length != 0) {
+			if (decl.choices.length == 1)
+				return resolveType(decl.choices[0]);
 			
-			return TPath({
-				pack: ["haxe", "ds"],
-				name: "Either",
-				params: decl.choices.map(function (choice) return TPType(resolveType(choice)))
+			//build nested EitherType
+			var either = TPath({
+				pack: ["haxe", "extern"],
+				name: "EitherType",
+				params: decl.choices.slice(0, 2).map(resolveType).map(TPType)
 			});
+			for (i in 2...decl.choices.length) {
+				var c = decl.choices[i];
+				either = TPath({
+					pack: ["haxe", "extern"],
+					name: "EitherType",
+					params: [TPType(resolveType(c)), TPType(either)]
+				});
+			}
+			return either;
 		}
+		else if (decl._ref == null)
+			return DYNAMIC;
 		//try pack._ref
 		var p = toHaxePackage(currentNamespace.join("."));
 		var name = toHaxeType(decl._ref);

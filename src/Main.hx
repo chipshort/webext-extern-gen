@@ -38,6 +38,7 @@ class Main {
 
         //print out generated types
         OUTPUT_FOLDER.delete(true);
+        Dir.of(PREDEFINED_FOLDER.path.join("internal")).copyTo(OUTPUT_FOLDER.path.join("internal"));
         #if chrome
         Dir.of(PREDEFINED_FOLDER.path.join("chrome")).copyTo(OUTPUT_FOLDER.path.join("chrome"));
         #else
