@@ -12,5 +12,6 @@ typedef JsonTypeDecl = {
     ?parameters : Array<JsonFunctionParameter>, //only for type = "function"
     ?returns : JsonTypeDecl, //only for type = "function"
     ?enum_ : Array<Dynamic>, //note: enum in the json files
-    ?unsupported : Bool
+    ?unsupported : Bool,
+    ?permissions : Array<String>
 }

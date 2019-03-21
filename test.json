@@ -1,0 +1,5 @@
+//TEST
+//TEST2
+
+{ test: "a" //comment
+}

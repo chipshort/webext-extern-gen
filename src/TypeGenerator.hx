@@ -4,7 +4,11 @@ import TypeHelper.*;
 
 using StringTools;
 using ArrayTools;
-using lazy.ListTools;
+
+typedef DocumentedTypeDefinition = {
+	> TypeDefinition,
+	?doc : String
+}
 
 class TypeGenerator {
     var namespaces : Iterable<JsonNamespace>;
@@ -26,35 +30,24 @@ class TypeGenerator {
         for (ns in namespaces) {
 			if (ns.types != null)
 				for (type in ns.types)
-					knownTypes.set(toHaxePackage(ns.namespace).join(".") + "." + toHaxeType(type.id), true);
+					if (type.id != null)
+						knownTypes.set(toHaxePackage(ns.namespace).join(".") + "." + toHaxeType(type.id), true);
 		}
         for (type in predefinedTypes)
             knownTypes.set(type, true);
     }
 
-    public function generate() : Array<TypeDefinition> {
-        var declarations : Array<TypeDefinition> = [];
+    public function generate() : Array<DocumentedTypeDefinition> {
+        var declarations : Array<DocumentedTypeDefinition> = [];
 		
 		for (ns in namespaces) {
 			if (ns.types != null)
 				for (type in ns.types) {
 					currentPackage = toHaxePackage(ns.namespace);
                     currentNamespace = currentPackage;
-					if (type.enum_ != null) {
-						declarations.push(convertEnum(type));
-					}
-					else {
-						declarations.push({
-							pack: currentPackage,
-							name: toHaxeType(type.id),
-							pos: null,
-							kind: TDStructure,
-							fields: parseProperties(type.properties)
-								.concat(parseFunctions(type.functions))
-								.concat(parseEvents(type.events))
-						});
-					}
-					//TODO: check if there can be events within these types
+					var parsedType = parseType(type);
+					if (parsedType != null)
+						declarations.push(parsedType);
 				}
 			
 			//create class for namespace itself
@@ -74,14 +67,36 @@ class TypeGenerator {
 				meta: [{name: ":native", params: [valueToConstExpr(NATIVE_PACK + "." + ns.namespace)], pos: null}],
 				fields: parseProperties(ns.properties)
 					.concat(parseFunctions(ns.functions))
-					.concat(parseEvents(ns.events)).map(makeStatic)
+					.concat(parseEvents(ns.events)).map(makeStatic),
+				doc: addPermissionsToDoc(ns.description, ns.permissions)
 			});
 		}
 
         return declarations;
     }
 
+	function parseType(type : JsonType) : DocumentedTypeDefinition {
+		if (type.enum_ != null) {
+			return convertEnum(type);
+		}
+		else if (type.id != null) {
+			return {
+				pack: currentPackage,
+				name: toHaxeType(type.id),
+				pos: null,
+				kind: type.choices == null ? TDStructure : TDAlias(resolveType(type)),
+				fields: parseProperties(type.properties)
+					.concat(parseFunctions(type.functions))
+					.concat(parseEvents(type.events)),
+				doc: addPermissionsToDoc(type.description, type.permissions)
+			};
+		}
+		return null;
+	}
+
     function parseProperties(properties : Dynamic) : Array<Field> {
+		if (properties == null)
+			return [];
 		return [for (field in Reflect.fields(properties)) {
 			var prop : JsonProperty = Reflect.field(properties, field);
 			var value = prop.value;
@@ -89,7 +104,7 @@ class TypeGenerator {
 				continue;
 			cast {
 				name: field,
-				doc: prop.description,
+				doc: addPermissionsToDoc(prop.description, prop.permissions),
 				access: value == null ? [APublic] : [APublic, AStatic, AInline],
 				kind: value == null ? FVar(resolveType(prop)) : FVar(null, valueToConstExpr(value)),
 				meta: prop.optional == true ? [{name: ":optional", pos: null}] : null
@@ -143,7 +158,7 @@ class TypeGenerator {
 
 			{
 				name: func.name,
-				doc: func.description,
+				doc: addPermissionsToDoc(func.description, func.permissions),
 				access: [APublic],
 				pos: null,
 				kind: FFun({
@@ -167,24 +182,26 @@ class TypeGenerator {
 				continue;
 			var callbackType = TPType(resolveType(e));
 			var type = DYNAMIC;
-			if (e.extraParameters == null) {
-				type = TPath({pack: PACKAGE.concat(["events"]), name: "Event", params: [callbackType]});
+			if (e.extraParameters == null || e.extraParameters.length == 0) {
+				type = TPath({pack: PACKAGE.concat(["internal"]), name: "Event", params: [callbackType]});
 			}
 			else {
-				if (e.extraParameters.length > 1)
-					Sys.println("WARNING: More than one extra parameter for event " + e.name);
-				
-				var extraParam = e.extraParameters[0];
-				var extraType = resolveType(extraParam);
-				// if (extraParam.optional == true)
-				// 	extraType = TOptional(extraType); //not allowed
-				
-				type = TPath({pack: PACKAGE.concat(["events"]), name: "ExtraEvent", params: [callbackType, TPType(extraType)]});
+				var extraTypes = e.extraParameters.map(resolveType).map(TPType);
+				var pack = PACKAGE.concat(["internal"]);
+				if (e.extraParameters.length > 2)
+					Sys.println("WARNING: Too many extra parameter for event " + currentNamespace.join(".") + "." + e.name);
+
+				if (e.extraParameters.length >= 2) {
+					type = TPath({pack: pack, name: "ExtraEvent2", params: [callbackType, extraTypes[0], extraTypes[1]]});
+				}
+				else if (e.extraParameters.length == 1) {					
+					type = TPath({pack: pack, name: "ExtraEvent", params: [callbackType, extraTypes[0]]});
+				}
 			}
 			
 			{
 				name: e.name,
-				doc: e.description,
+				doc: addPermissionsToDoc(e.description, e.permissions),
 				access: [APublic],
 				pos: null,
 				kind: FVar(type)
@@ -193,14 +210,15 @@ class TypeGenerator {
 	}
 
     /** Converts an enumerated type to a `@:enum abstract` **/
-	function convertEnum(type : JsonType) : TypeDefinition {
+	function convertEnum(type : JsonType) : DocumentedTypeDefinition {
 		return {
 			pack: currentPackage,
 			name: toHaxeType(type.id),
             meta: [{name: ":enum", pos: null}],
 			pos: null,
 			kind: TDAbstract(resolveType(type)),
-			fields: type.enum_ == null ? [] : type.enum_.map(valueToField)
+			fields: type.enum_ == null ? [] : type.enum_.map(enumValueToField).map(escapeName),
+			doc: addPermissionsToDoc(type.description, type.permissions)
 		}
 		return null;
 	}
@@ -225,7 +243,7 @@ class TypeGenerator {
 					params: [TPType(resolveType(decl.items))]
 				});
 			case Object:
-				if (decl.properties == null)
+				if (decl.properties == null || decl.properties.length == 0)
 					return DYNAMIC;
 				
 				var props = parseProperties(decl.properties);
@@ -265,10 +283,14 @@ class TypeGenerator {
 			candidate = knownTypes.get(p.join(".") + "." + name);
 		}
 		
-		if (candidate != null)
+		if (candidate != null) {
 			return TPath({pack: p, name: name});
-		else
+		}
+		else {
+			Sys.println('WARNING: Type not found in package $currentNamespace $decl');
 			return DYNAMIC;
+		}
+			
 	}
 
 
@@ -278,7 +300,9 @@ class TypeGenerator {
 	function toHaxePackage(namespace : String)
 		if (namespace == null)
 			return PACKAGE;
-		else if (namespace.startsWith(PACKAGE.join(".")))
+		else if (namespace == PACKAGE.join("."))
+			return PACKAGE;
+		else if (namespace.startsWith(PACKAGE.join(".") + "."))
 			return namespace.toLowerCase().split(".");
 		else
 			return PACKAGE.concat(namespace.toLowerCase().split("."));

@@ -10,33 +10,49 @@ class TypeHelper {
 		"return", "static", "super", "switch", "this", "throw", "true", "try", "typedef", "untyped", "using",
 		"var", "while"];
 	public static function escapeName(field : Field) {
-		if (RESERVED.indexOf(field.name) > 0) {
-			var old = field.name;
+		var old = field.name;
+		if (RESERVED.indexOf(field.name) > 0)
 			field.name = "_" + field.name;
-			if (field.meta == null)
+		
+		if (field.meta == null)
 				field.meta = [];
-			
+		field.name = field.name.replace("-", "_");
+		if (field.name != old)
 			field.meta.push({ name: ":native", params: [valueToConstExpr(old)], pos: null});
-		}
+
+		// var regex = ~/[a-zA-Z_][a-zA-Z0-9_]*/;
+		// if (!regex.match(field.name) || regex.matchedPos().len != field.name.length)
+		// 	trace(field.name);
+		
 		return field;
 	}
 
-    public static function valueToField(value : Dynamic) : Field {
+	public static function addPermissionsToDoc(desc : Null<String>, permissions : Null<Array<String>>) {
+		var doc = desc == null ? "" : desc;
+		if (permissions != null)
+			doc += "\nNEEDED PERMISSIONS: " + permissions.join(", ");
+		return doc;
+	}
+
+    public static function enumValueToField(value : Dynamic) : Field {
+		var doc = null;
         var name = switch (Type.typeof(value)) {
             case TInt: "VAL_" + value;
             case TFloat: "VAL_" + Std.string(value).replace(".", "_");
             case TBool: Std.string(value).toUpperCase();
             case TClass(String): value.toUpperCase();
+			case TObject if (value.name != null):
+				doc = value.description;
+				value.name.toUpperCase();
             default: Std.string(value).toUpperCase();
         }
         
         return {
             name: name,
             kind: FVar(null, valueToConstExpr(value)),
-            pos: null
+            pos: null,
+			doc: doc
         };
-
-        return null;
     }
 
 	public static function makeStatic(field : Field) {

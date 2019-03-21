@@ -1,6 +1,6 @@
 -cp src
--cp ../hxLazy/src
 -D analyzer-optimize
 -main Main
 -lib haxe-files
+-lib tjson
 --interp
