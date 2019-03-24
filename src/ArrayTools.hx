@@ -26,6 +26,8 @@ class ArrayTools {
         return a.join(sep);
 
     public static inline function distinct<T>(a : Array<T>) : Array<T> {
+        if (a == null)
+            return null;
         var newArray = new Array<T>();
         for (x in a) {
             if (newArray.indexOf(x) < 0)

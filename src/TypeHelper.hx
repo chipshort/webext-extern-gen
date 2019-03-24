@@ -1,4 +1,6 @@
 
+import hx.files.Path;
+import hx.files.Dir;
 import json.types.JsonNamespace;
 import haxe.macro.Expr;
 
@@ -57,7 +59,7 @@ class TypeHelper {
             var types = pack.map(function (ns) return ns.types).foldl(ArrayTools.concat, []);
             var funcs = pack.map(function (ns) return ns.functions).foldl(ArrayTools.concat, []);
             var props = pack.map(function (ns) return ns.properties).foldl(merge, {});
-            var permissions = pack.map(function (ns) return ns.permissions).foldl(ArrayTools.concat, []).distinct();
+            var permissions = pack.map(function (ns) return ns.permissions).foldl(ArrayTools.concat, null).distinct();
             
             namespaces.push({
                 namespace: pack.head().namespace,
@@ -73,10 +75,34 @@ class TypeHelper {
         return namespaces;
     }
 
+
+    public static var PREDEFINED_FOLDER = Dir.of("predefined");
+    public static function collectPredefined() : Array<String> {
+        //collect predefined types
+        var predefined = PREDEFINED_FOLDER.findFiles("**/*.hx")
+            .map(function (file) return pathToDotPath(file.path));
+        // .walk(function (file) {
+        //     var dotPath = pathToDotPath(file.path);
+        //     predefined.push(dotPath);
+        // }, function (dir) return true);
+        return predefined;
+    }
+
+    static function pathToDotPath(path : Path) : String {
+        var predefined = PREDEFINED_FOLDER.toString(); // PREDEFINED_FOLDER/
+        var str = path.normalize().toString();
+        if (str.startsWith(predefined))
+            str = str.substr(predefined.length);
+        if (path.filenameExt != "")
+            str = str.substr(0, str.length - path.filenameExt.length - 1); // .filenameExt
+        
+        return str.replace(path.dirSep, ".");
+    }
+
 	public static function addPermissionsToDoc(desc : Null<String>, permissions : Null<Array<String>>) {
 		var doc = desc == null ? "" : desc;
 		if (permissions != null)
-			doc += "\nNEEDED PERMISSIONS: " + permissions.join(", ");
+			doc += "\nNEEDED PERMISSIONS: " + permissions;
 		return doc;
 	}
 
