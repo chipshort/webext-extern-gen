@@ -11,7 +11,7 @@ fi
 
 set -e
 echo "Installing Haxelib dependencies..."
-haxelib install build.hxml --quiet
+haxelib install build.hxml --always
 echo "----------"
 
 #Convert chrome idl schemas
