@@ -1,27 +1,27 @@
 
-import json.JsonFix;
-import json.types.JsonNamespace;
 import hx.files.*;
-
-using StringTools;
-using ArrayTools;
+import TypeGenerator;
 
 class Main {
     #if chrome
     static var OUTPUT_FOLDER = Dir.of("chrome_output");
+    static var SCHEMAS_FOLDER = SchemaHelper.CHROME_FOLDER;
+    static var PLATFORM = Chrome;
     #else
     static var OUTPUT_FOLDER = Dir.of("firefox_output");
+    static var SCHEMAS_FOLDER = SchemaHelper.FIREFOX_FOLDER;
+    static var PLATFORM = Firefox;
     #end
 
     static function main() {
-        Sys.println("Generating externs for " + #if chrome "Chrome" #else "Firefox" #end + ":");
+        Sys.println('Generating externs for $PLATFORM:');
         Sys.println("Parsing json files...");
-        var schemaFiles = SchemaHelper.loadSchemas();
+        var schemaFiles = SchemaHelper.loadSchemas(SCHEMAS_FOLDER);
         
         var predefined = TypeHelper.collectPredefined();
 
         Sys.println("Generating externs...");
-        var declarations = new TypeGenerator(schemaFiles, predefined).generate();
+        var declarations = new TypeGenerator(schemaFiles, predefined, PLATFORM).generate();
 
         //print out generated types
         OUTPUT_FOLDER.delete(true);

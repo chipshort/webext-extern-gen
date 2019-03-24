@@ -81,10 +81,6 @@ class TypeHelper {
         //collect predefined types
         var predefined = PREDEFINED_FOLDER.findFiles("**/*.hx")
             .map(function (file) return pathToDotPath(file.path));
-        // .walk(function (file) {
-        //     var dotPath = pathToDotPath(file.path);
-        //     predefined.push(dotPath);
-        // }, function (dir) return true);
         return predefined;
     }
 

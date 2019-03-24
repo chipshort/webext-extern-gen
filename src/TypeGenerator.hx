@@ -10,21 +10,26 @@ typedef DocumentedTypeDefinition = {
 	?doc : String
 }
 
+enum Platform {
+	Chrome;
+	Firefox;
+}
+
 class TypeGenerator {
     var namespaces : Iterable<JsonNamespace>;
     var knownTypes = new Map<String, Bool>();
     var currentPackage : Array<String>;
     var currentNamespace : Array<String>;
 
-	#if chrome
-    static var PACKAGE = ["chrome"];
-	static inline var NATIVE_PACK = "chrome";
-	#else
-	static var PACKAGE = ["browser"];
-	static inline var NATIVE_PACK = "browser";
-	#end
+	var platform : Platform;
+    static var CHROME_PACKAGE = ["chrome"];
+	static inline var CHROME_NATIVE_PACK = "chrome";
+	static var FIREFOX_PACKAGE = ["browser"];
+	static inline var FIREFOX_NATIVE_PACK = "browser";
 
-    public function new(schemas : Array<JsonNamespace>, predefinedTypes : Array<String>) {
+    public function new(schemas : Array<JsonNamespace>, predefinedTypes : Array<String>, platform : Platform) {
+		this.platform = platform;
+
         this.namespaces = joinNamespaces(schemas);
         //mark namespaces as known
         for (ns in namespaces) {
@@ -36,6 +41,17 @@ class TypeGenerator {
         for (type in predefinedTypes)
             knownTypes.set(type, true);
     }
+
+	inline function getPackage() : Array<String>
+		return switch (platform) {
+			case Chrome: CHROME_PACKAGE;
+			case Firefox: FIREFOX_PACKAGE;
+		}
+	inline function getNativePackage() : String
+		return switch (platform) {
+			case Chrome: CHROME_NATIVE_PACK;
+			case Firefox: FIREFOX_NATIVE_PACK;
+		}
 
     public function generate() : Array<DocumentedTypeDefinition> {
         var declarations : Array<DocumentedTypeDefinition> = [];
@@ -64,7 +80,7 @@ class TypeGenerator {
 				pos: null,
 				kind: TDClass(),
 				isExtern: true,
-				meta: [{name: ":native", params: [valueToConstExpr(NATIVE_PACK + "." + ns.namespace)], pos: null}],
+				meta: [{name: ":native", params: [valueToConstExpr(getNativePackage() + "." + ns.namespace)], pos: null}],
 				fields: parseProperties(ns.properties)
 					.concat(parseFunctions(ns.functions))
 					.concat(parseEvents(ns.events)).map(makeStatic),
@@ -311,11 +327,11 @@ class TypeGenerator {
 
 	function toHaxePackage(namespace : String)
 		if (namespace == null)
-			return PACKAGE;
-		else if (namespace == PACKAGE.join("."))
-			return PACKAGE;
-		else if (namespace.startsWith(PACKAGE.join(".") + "."))
+			return getPackage();
+		else if (namespace == getPackage().join("."))
+			return getPackage();
+		else if (namespace.startsWith(getPackage().join(".") + "."))
 			return namespace.toLowerCase().split(".");
 		else
-			return PACKAGE.concat(namespace.toLowerCase().split("."));
+			return getPackage().concat(namespace.toLowerCase().split("."));
 }

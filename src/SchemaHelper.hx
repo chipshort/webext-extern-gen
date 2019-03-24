@@ -9,21 +9,13 @@ using StringTools;
 
 class SchemaHelper {
 
-    #if chrome
-    static var SCHEMAS_FOLDER = Dir.of("chrome_schemas");
-    #else
-    static var SCHEMAS_FOLDER = Dir.of("firefox_schemas");
-    #end
+    public static var CHROME_FOLDER = Dir.of("chrome_schemas");
+    public static var FIREFOX_FOLDER = Dir.of("firefox_schemas");
 
-    public static function loadSchemas() : Array<JsonNamespace> {
-        var files = [];
-        SCHEMAS_FOLDER.walk(function (file) files.push(file), function (_) return true);
-        var schemaFiles = files
-            .filter(function (file) return file.path.filenameExt == "json")
+    public static inline function loadSchemas(folder : Dir) : Array<JsonNamespace> {
+        return folder.findFiles("**/*.json")
             .map(parseFile)
             .foldl(ArrayTools.concat, []);
-
-        return schemaFiles;
     }
 
     static function parseFile(file : File) {
