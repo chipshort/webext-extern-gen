@@ -1,7 +1,9 @@
 
+import json.types.JsonNamespace;
 import haxe.macro.Expr;
 
 using StringTools;
+using ArrayTools;
 
 class TypeHelper {
     static var RESERVED = ["break", "case", "cast", "catch", "class", "continue", "default", "do", "dynamic",
@@ -19,13 +21,57 @@ class TypeHelper {
 		field.name = field.name.replace("-", "_");
 		if (field.name != old)
 			field.meta.push({ name: ":native", params: [valueToConstExpr(old)], pos: null});
-
-		// var regex = ~/[a-zA-Z_][a-zA-Z0-9_]*/;
-		// if (!regex.match(field.name) || regex.matchedPos().len != field.name.length)
-		// 	trace(field.name);
 		
 		return field;
 	}
+
+	/** Joins all namespaces with the same `namespace` together **/
+    public static function joinNamespaces(namespaces : Array<JsonNamespace>) : Array<JsonNamespace> {
+        var packages = new Map<String, Array<JsonNamespace>>();
+
+        function addToBucket(name, ns) {
+            var currentBucket = packages.get(name);
+            if (currentBucket == null)
+                packages.set(name, [ns]);
+            else
+                currentBucket.push(ns);
+        }
+        for (ns in namespaces)
+            addToBucket(ns.namespace, ns);
+        
+        var namespaces = [];
+        for (pack in packages) {
+            function merge(base: Dynamic, ext: Dynamic) : Dynamic {
+                if (ext == null)
+                    return base == null ? {} : base;
+                if (base == null)
+                    return ext == null ? {} : ext;
+                var res = Reflect.copy(base);
+                for(f in Reflect.fields(ext))
+                    Reflect.setField(res,f,Reflect.field(res,f));
+                return res;
+            }
+            var desc = pack.map(function (ns) return ns.description)
+                .foldl(function (a, b) return a + "\r\n" + b, ""); //add all docs
+            var events = pack.map(function (ns) return ns.events).foldl(ArrayTools.concat, []);
+            var types = pack.map(function (ns) return ns.types).foldl(ArrayTools.concat, []);
+            var funcs = pack.map(function (ns) return ns.functions).foldl(ArrayTools.concat, []);
+            var props = pack.map(function (ns) return ns.properties).foldl(merge, {});
+            var permissions = pack.map(function (ns) return ns.permissions).foldl(ArrayTools.concat, []).distinct();
+            
+            namespaces.push({
+                namespace: pack.head().namespace,
+                description: desc,
+                events: events,
+                types: types,
+                functions: funcs,
+                properties: props,
+                permissions: permissions
+            });
+        }
+
+        return namespaces;
+    }
 
 	public static function addPermissionsToDoc(desc : Null<String>, permissions : Null<Array<String>>) {
 		var doc = desc == null ? "" : desc;

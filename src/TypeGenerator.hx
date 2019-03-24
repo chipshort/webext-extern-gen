@@ -24,8 +24,8 @@ class TypeGenerator {
 	static inline var NATIVE_PACK = "browser";
 	#end
 
-    public function new(namespaces : Iterable<JsonNamespace>, predefinedTypes : Iterable<String>) {
-        this.namespaces = namespaces;
+    public function new(schemas : Array<JsonNamespace>, predefinedTypes : Array<String>) {
+        this.namespaces = joinNamespaces(schemas);
         //mark namespaces as known
         for (ns in namespaces) {
 			if (ns.types != null)

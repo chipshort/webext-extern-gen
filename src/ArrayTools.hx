@@ -22,7 +22,8 @@ class ArrayTools {
         return z;
     }
 
-    
+    public static inline function join(a : Array<String>, sep : String) : String
+        return a.join(sep);
 
     public static inline function distinct<T>(a : Array<T>) : Array<T> {
         var newArray = new Array<T>();
@@ -34,7 +35,7 @@ class ArrayTools {
         return newArray;
     }
 
-    public static inline function concatArrays<T>(a : Array<T>, b : Array<T>) : Array<T>
+    public static inline function concat<T>(a : Array<T>, b : Array<T>) : Array<T>
         if (a == null)
 			return b;
         else if (b == null)

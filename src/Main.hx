@@ -1,5 +1,4 @@
 
-import haxe.Json;
 import json.JsonFix;
 import json.types.JsonNamespace;
 import hx.files.*;
@@ -18,14 +17,14 @@ class Main {
     static var PREDEFINED_FOLDER = Dir.of("predefined");
 
     static function main() {
+        Sys.println("Generating externs for " + #if chrome "Chrome" #else "Firefox" #end + ":");
+        Sys.println("Parsing json files...");
         var files = [];
         SCHEMAS_FOLDER.walk(function (file) files.push(file), function (_) return true);
-        var parsed = files
+        var schemaFiles = files
             .filter(function (file) return file.path.filenameExt == "json")
             .map(parseFile)
-            .foldl(ArrayTools.concatArrays, []);
-        
-        var namespaces = joinNamespaces(parsed);
+            .foldl(ArrayTools.concat, []);
         
         //collect predefined types
         var predefined = [];
@@ -34,7 +33,8 @@ class Main {
             predefined.push(dotPath);
         }, function (dir) return true);		
 
-        var declarations = new TypeGenerator(namespaces, predefined).generate();
+        Sys.println("Generating externs...");
+        var declarations = new TypeGenerator(schemaFiles, predefined).generate();
 
         //print out generated types
         OUTPUT_FOLDER.delete(true);
@@ -44,6 +44,7 @@ class Main {
         #else
         Dir.of(PREDEFINED_FOLDER.path.join("browser")).copyTo(OUTPUT_FOLDER.path.join("browser"));
         #end
+        Sys.println("Writing externs to " +  OUTPUT_FOLDER.path.toString() + "...");
         var printer = new haxe.macro.Printer("\t");
         for (decl in declarations) {
             var folder = OUTPUT_FOLDER.path.join(decl.pack.join(OUTPUT_FOLDER.path.dirSep));
@@ -101,11 +102,11 @@ class Main {
             }
             var desc = pack.map(function (ns) return ns.description)
                 .foldl(function (a, b) return a + "\r\n" + b, ""); //add all docs
-            var events = pack.map(function (ns) return ns.events).foldl(ArrayTools.concatArrays, []);
-            var types = pack.map(function (ns) return ns.types).foldl(ArrayTools.concatArrays, []);
-            var funcs = pack.map(function (ns) return ns.functions).foldl(ArrayTools.concatArrays, []);
+            var events = pack.map(function (ns) return ns.events).foldl(ArrayTools.concat, []);
+            var types = pack.map(function (ns) return ns.types).foldl(ArrayTools.concat, []);
+            var funcs = pack.map(function (ns) return ns.functions).foldl(ArrayTools.concat, []);
             var props = pack.map(function (ns) return ns.properties).foldl(merge, {});
-            var permissions = pack.map(function (ns) return ns.permissions).foldl(ArrayTools.concatArrays, []).distinct();
+            var permissions = pack.map(function (ns) return ns.permissions).foldl(ArrayTools.concat, []).distinct();
             
             namespaces.push({
                 namespace: pack.head().namespace,
