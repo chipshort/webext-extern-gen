@@ -26,11 +26,11 @@ class Main {
         //print out generated types
         OUTPUT_FOLDER.delete(true);
         Dir.of(TypeHelper.PREDEFINED_FOLDER.path.join("internal")).copyTo(OUTPUT_FOLDER.path.join("internal"));
-        #if chrome
-        Dir.of(TypeHelper.PREDEFINED_FOLDER.path.join("chrome")).copyTo(OUTPUT_FOLDER.path.join("chrome"));
-        #else
-        Dir.of(TypeHelper.PREDEFINED_FOLDER.path.join("browser")).copyTo(OUTPUT_FOLDER.path.join("browser"));
-        #end
+        // #if chrome
+        // Dir.of(TypeHelper.PREDEFINED_FOLDER.path.join("chrome")).copyTo(OUTPUT_FOLDER.path.join("chrome"));
+        // #else
+        // Dir.of(TypeHelper.PREDEFINED_FOLDER.path.join("browser")).copyTo(OUTPUT_FOLDER.path.join("browser"), );
+        // #end
         Sys.println("Writing externs to " +  OUTPUT_FOLDER.path.toString() + "...");
         var printer = new haxe.macro.Printer("\t");
         for (decl in declarations) {
