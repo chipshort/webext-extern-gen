@@ -19,15 +19,15 @@ The usage depends on whether you want to generate the Firefox or Chrome Extensio
 ### Firefox WebExtension
 1. Go to https://hg.mozilla.org/mozilla-unified/tags, choose the version of Firefox you want externs for, then navigate to /browser/components/extensions/schemas/ and /toolkit/components/extensions/schemas
 2. Download them (as a zip) and put the files (unpacked) into the "firefox_schemas" folder within this project.
-3. Run the generator using `haxe build.hxml`
+3. Run the generator using `./generate_firefox.sh`
 4. The output can be found in "firefox_output"
 
 ### Chrome Extension
 1. Go to https://chromium.googlesource.com/chromium/src/+refs, choose the version of Crhome you want externs for, then navigate to /chrome/common/extensions/api/ and /extensions/common/api
 2. Download them (as a tgz) and put the files (unpacked) into the "chrome_schemas" folder within this project.
-3. Run the generator using `haxe build.hxml -D chrome`
+3. Run the generator using `./generate_chrome.sh`
 4. The output can be found in "chrome_output"
 
 ## TODO:
-- The generated APIs are probably incomplete.
-- Overall, the generator is not tested enough on the Chrome files and there are probably more bugs
+- Probably only needs more testing of the actual APIs
+- Write a wrapper around the apis for easy portability
