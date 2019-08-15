@@ -10,8 +10,6 @@ A [Haxe](https://haxe.org) installation is needed.
 Just clone this git and run `haxelib install build.hxml`
 That should install all the necessary libraries.
 
-TODO: Make lazy lib public on haxelib or remove it from the project
-
 ## Usage
 
 The usage depends on whether you want to generate the Firefox or Chrome Extension APIs:
