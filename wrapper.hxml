@@ -1,0 +1,6 @@
+-cp src
+-D analyzer-optimize
+-main WrapperGenerator
+-lib haxe-files
+-lib tjson
+--interp

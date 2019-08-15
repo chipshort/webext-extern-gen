@@ -22,9 +22,9 @@ class TypeGenerator {
     var currentNamespace : Array<String>;
 
 	var platform : Platform;
-    static var CHROME_PACKAGE = ["chrome"];
+    public static var CHROME_PACKAGE = ["chrome"];
 	static inline var CHROME_NATIVE_PACK = "chrome";
-	static var FIREFOX_PACKAGE = ["browser"];
+	public static var FIREFOX_PACKAGE = ["browser"];
 	static inline var FIREFOX_NATIVE_PACK = "browser";
 
     public function new(schemas : Array<JsonNamespace>, predefinedTypes : Array<String>, platform : Platform) {

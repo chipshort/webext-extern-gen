@@ -1,4 +1,6 @@
 
+import Tuple;
+
 using ArrayTools;
 
 class ArrayTools {
@@ -45,5 +47,14 @@ class ArrayTools {
         else {
             return a.concat(b);
         }
+    
+    public static inline function zipWith<S, U>(a : Array<S>, b : Array<U>) : Array<Tuple<S, U>> {
+        var res = [];
+        var len = Std.int(Math.min(a.length, b.length));
+        
+        for (i in 0...len)
+            res[i] = T(a[i], b[i]);
             
+        return res;
+    }
 }
